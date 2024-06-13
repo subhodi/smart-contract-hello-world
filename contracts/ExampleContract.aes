@@ -1,0 +1,18 @@
+@compiler >= 6
+
+contract HelloWorldContract =
+
+    record state = {
+        balance: int}
+
+    stateful entrypoint init() =
+        { balance = 42}
+
+    public entrypoint get() : int =
+        state.balance
+
+    public entrypoint return_caller() : address =
+        Call.caller
+
+    public stateful entrypoint set(newBalance: int) : unit =
+        put(state{balance = newBalance})

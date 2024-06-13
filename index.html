@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aeternity Contract Interaction</title>
+    <script src="https://unpkg.com/@aeternity/aepp-sdk/dist/aepp-sdk.browser-script.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", async () => {
+        const { AeSdk, Node, Contract, MemoryAccount, CompilerHttp } =
+          Aeternity;
+        const COMPILER_URL = "https://v7.compiler.aepps.com";
+
+        const node = new Node("https://testnet.aeternity.io");
+        const ACCOUNT_SECRET_KEY =
+          "9ebd7beda0c79af72a42ece3821a56eff16359b6df376cf049aee995565f022f840c974b97164776454ba119d84edc4d6058a8dec92b6edc578ab2d30b4c4200";
+        const account = new MemoryAccount(ACCOUNT_SECRET_KEY);
+
+        const aeSdk = new AeSdk({
+          nodes: [{ name: "testnet", instance: node }],
+          accounts: [account],
+          onCompiler: new CompilerHttp(COMPILER_URL),
+        });
+
+        aeSdk.getHeight().then((height) => {
+          console.log("Current Block Height:" + height);
+        });
+
+        // Contract address and ABI
+        const contractAddress = "YOUR_CONTRACT_ADDRESS";
+        const CONTRACT_SOURCE_CODE = `
+                @compiler >= 6
+                main contract Example =
+                    type state = option(int)
+                    datatype event = SetXEvent(address, int)
+                    entrypoint init() : state = None
+                    stateful entrypoint set(x : int) : unit =
+                        Chain.event(SetXEvent(Call.caller, x))
+                        put(Some(x))
+                    entrypoint get() : int =
+                        switch(state)
+                            None => abort("NOTHING_SET_YET")
+                            Some(var) => var
+            `;
+
+        // Initialize the contract
+        const contract = await aeSdk.initializeContract({
+          sourceCode: CONTRACT_SOURCE_CODE,
+          address: "ct_2oScofNmP9EZ2VNapyPDRMY4bS8dbgMV8WitNuzFT98nc4GioY",
+        });
+
+        const bytecode = await contract.$compile();
+        console.log(`Obtained bytecode ${bytecode}`);
+
+        // const deployInfo = await contract.$deploy([5]);
+        // console.log(`Contract deployed at ${deployInfo.address}`);
+
+        // Set function
+        document
+          .getElementById("setButton")
+          .addEventListener("click", async () => {
+            const value = parseInt(
+              prompt("Enter an integer value to set:"),
+              10,
+            );
+            if (!isNaN(value)) {
+              try {
+                await contract.set(value);
+                alert("Value set successfully.");
+              } catch (error) {
+                console.error(error);
+                alert("Error setting value.");
+              }
+            } else {
+              alert("Invalid input.");
+            }
+          });
+
+        // Get function
+        document
+          .getElementById("getButton")
+          .addEventListener("click", async () => {
+            try {
+              const result = await contract.get();
+              alert(`Current value: ${result.decodedResult}`);
+            } catch (error) {
+              console.error(error);
+              alert("Error retrieving value.");
+            }
+          });
+      });
+    </script>
+  </head>
+
+  <body>
+    <h1>Aeternity Contract Interaction</h1>
+    <button id="setButton">Set</button>
+    <button id="getButton">Get</button>
+  </body>
+</html>
